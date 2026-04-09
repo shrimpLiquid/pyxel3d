@@ -171,7 +171,8 @@ class App:
                                 (self.points[ind[2]][x],self.points[ind[2]][y]),
                                 ind[3],
                                 int(self.points[ind[2]][z]),
-                                nval[i])) 
+                                nval[i],
+                                (np.array(normalize_3d_vector([(prevertices[ind[0]][x]+prevertices[ind[1]][x]+prevertices[ind[2]][x])/3,(prevertices[ind[0]][y]+prevertices[ind[1]][y]+prevertices[ind[2]][y])/3,(prevertices[ind[0]][z]+prevertices[ind[1]][z]+prevertices[ind[2]][z])/3])) @ nval[i]))) 
         self.tris.sort(key=lambda t: t[4], reverse=True)
 
 
@@ -188,7 +189,8 @@ class App:
         pyxel.text(-300,-300,str(len(self.tris)),7)
         
         for tri in self.tris:
-            self.dot = (lv @ tri[-1])/2
+            self.dot = (lv @ tri[5])/2
+            self.dot = 
             pyxel.dither(1)
             pyxel.tri(tri[0][x],tri[0][y],tri[1][x],tri[1][y],tri[2][x],tri[2][y],tri[3])
             if self.dot > 0:
