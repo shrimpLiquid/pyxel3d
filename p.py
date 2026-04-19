@@ -2,10 +2,11 @@ a = []
 b = []
 c = []
 
+
 ind = []
 for i in range(6):
 	b = []
-	for j in range(7):
+	for j in range(6):
 		c = []
 		for k in range(6):
 			c.append(())
@@ -19,7 +20,7 @@ import colorutils
 
 
 for B in range(6):
-    for G in range(7):
+    for G in range(6):
         for R in range(6):
             im = Image.open("pyxel3d/cols.png")
             cole = im.getpixel((R+(B*6),G))
@@ -31,7 +32,7 @@ for B in range(6):
 cl = []
 numb = 0
 for B in range(6):
-	for G in range(7):
+	for G in range(6):
 		for R in range(6):
 			cl.append(rth(a[R][G][B]).replace("#","0x"))
 			ind[R][G][B] = numb
