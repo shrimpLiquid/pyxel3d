@@ -2,7 +2,6 @@ import os
 from math import *
 import pyxel  
 from random import randint
-import cmath
 from pyxel import KEY_W,KEY_S,KEY_D,KEY_A
 from pyxel import KEY_RIGHT,KEY_LEFT,KEY_UP,KEY_DOWN
 import numpy as np
@@ -10,20 +9,20 @@ import stl_reader
 from time import time
 from stl import mesh as besh
 
-
+size = 600
 
 
 
 
 def rotate_z(point, angle):
     px, py, pz = point  
-    qx = py * cmath.cos(angle) - pz * cmath.sin(angle)
-    qy = py * cmath.sin(angle) + pz * cmath.cos(angle)
+    qx = py * cos(angle) - pz * sin(angle)
+    qy = py * sin(angle) + pz * cos(angle)
     return px, qx, qy
 def rotate(point, angle):
     px, py, pz = point
-    qx = px * cmath.cos(angle) + pz * cmath.sin(angle)
-    qz = -px * cmath.sin(angle) + pz * cmath.cos(angle)
+    qx = px * cos(angle) + pz * sin(angle)
+    qz = -px * sin(angle) + pz * cos(angle)
     return qx, py, qz
 
 x= 0
@@ -44,22 +43,6 @@ def frtr(I,II,III,IV,V,VI,fcol):
     v1=0
     s1=0
     pyxel.tri(I,II,III,IV,V,VI,colors[int(r)][int(g)][int(b)])
-    if not (r % 2 ==0 and g % 2 == 0 and b % 2 == 0):
-        if r % 2 ==1:
-            h1 = (int(r/2)+1)
-        else:
-            h1 = int(r/2)
-        if b % 2 ==1:
-            v1 = (int(b/2)+1)
-        else:
-            v1 = int(b/2)
-        if g % 2 ==1:
-            s1 = (int(g/2)+1)
-        else:
-            s1 = int(g/2)
-            pyxel.dither(dist(((hsv[0]/255)*5,(hsv[1]/255)*5,(hsv[2]/255)*5),(r,g,b))/5)
-            pyxel.tri(I,II,III,IV,V,VI,colors[h1][s1][v1])
-            pyxel.dither(1)
 
 
 def sideofline(A, B, P):
@@ -71,22 +54,11 @@ def sideofline(A, B, P):
     return 0
 
 def triangle(P0, P1, P2):
-    n = 0
-    for N in [P0[z],P1[z],P2[z]]:
-        if N < 0:
-            n+=1
-    if n > 2:
-        return False
-    n = 0
-    for N in [P0[x],P0[y],P1[x],P1[y],P2[x],P2[y]]:
-        if N < -400 or N > 600:
-            n+=1
-    if n > 2:
+    if P0[z] < 0.1 or P1[z] < 0.1 or P2[z] < 0.1:
         return False
     val = (P1[x] - P0[x]) * (P2[y] - P0[y]) - (P1[y] - P0[y]) * (P2[x] - P0[x])
-    if val < 0:
-        return True
-    return False
+    
+    return val < 0
 
 def normalize_3d_vector(v):
     magnitude = sqrt(v[0]**2 + v[1]**2 + v[2]**2)
@@ -117,20 +89,21 @@ def mesh(file, X, Y, Z, S,color):
         indices.append(I)
     modelcount += 1
 modelcount = 0
+
 nval = []
 mesh("nut",2,0.2,0,0.3,(0,100,255))
 mesh("nut",4,0,0,0.6,(255,0,255))
 mesh("suzanne",-4,0,0,1,(200,100,0))
 mesh("plane",0,-1,0,1,(80,0,130))
 mesh("cone",0,0,5,0.3,(255,255,255))
-mesh("freak",0,0,-2,1,(0,255,0))
+mesh("ball",0,0,-2,1,(0,255,0))
 mesh("S&C",5,0,6,1,(0,100,255))
 
 
 
 
-lv = np.array([0.447214, -0.894427, 0])
-slop= 1000
+lv = np.array([0.25, -0.5, 1])
+slop= 1.6*size
 speed = 0.1
 def project(pos):
     FOC = 1
@@ -142,14 +115,14 @@ def project(pos):
             float(pos[z])])
 class App:
     def __init__(self):
-        pyxel.init(600, 600)
+        pyxel.init(size, size)
         self.points = []
         self.tris = []
         self.c = 8
         self.cp = [0,0,0]
         self.trf = []
-        self.yaw = -21474832.540000007
-        self.pitch = -21474827.75000000
+        self.yaw = radians(90)
+        self.pitch = radians(0)
         self.dot = 0
         self.tm = 0
         self.col = ()
@@ -161,9 +134,9 @@ class App:
     def update(self):
         print(self.pitch,self.yaw)
         if pyxel.frame_count >20:
-            self.yaw += (((pyxel.mouse_x-300))/-100)
-            self.pitch += (((pyxel.mouse_y-300))/-100)
-        pyxel.warp_mouse(300,300)
+            self.yaw += (((pyxel.mouse_x-int(size/2)))/-100)*(600/size)
+            self.pitch += (((pyxel.mouse_y-int(size/2)))/-100)*(600/size)
+        pyxel.warp_mouse(int(size/2),int(size/2))
         if pyxel.btn(KEY_W):
             self.cp[2]+= sin(self.yaw+1.5708)*speed
             self.cp[0]+= cos(self.yaw+1.5708)*speed
@@ -203,7 +176,7 @@ class App:
                                 (self.points[ind[1]][x],self.points[ind[1]][y]),
                                 (self.points[ind[2]][x],self.points[ind[2]][y]),
                                 ind[3],
-                                int(self.points[ind[2]][z]),
+                                int((self.points[ind[2]][z]+self.points[ind[1]][z]+self.points[ind[0]][z])/3),
                                 nval[i],
                                 (vertices[ind[0]][x],vertices[ind[0]][y],vertices[ind[0]][z]))) 
         self.tris.sort(key=lambda t: t[4], reverse=True)
@@ -212,31 +185,29 @@ class App:
         
     def draw(self):
         pyxel.cls(colors[0][0][0]) 
-        pyxel.camera(-300,-300)
-        pyxel.mouse(True)
-        pyxel.line(300,-300,300,300,7)
+        pyxel.camera(-(size/2),-(size/2))
+        pyxel.line((size/2),-(size/2),(size/2),(size/2),7)
         pyxel.dither(1)
-        pyxel.text(-300,-280,str(int(1/(time()-self.tm))),colors[0][0][0])
-        pyxel.text(-300,-290,str(self.cp),colors[0][0][0])
+        
+
         self.tm = time()
         
         
-        pyxel.text(-300,-300,str(len(self.tris)),colors[0][0][0])
         
         for tri in self.tris:
-            self.dot = (lv @ tri[5])*-40
+            self.dot = (lv @ tri[5])*-100
             pyxel.dither(1)
-            #pyxel.tri(tri[0][x],tri[0][y],tri[1][x],tri[1][y],tri[2][x],tri[2][y],tri[3])
             self.col = (tri[3][0]-self.dot,tri[3][1]-self.dot,tri[3][2]-self.dot)
+            #self.col = ((tri[5][x]+1)*127,(tri[5][y]+1)*127,(tri[5][z]+1)*127)
             frtr(tri[0][x],tri[0][y],tri[1][x],tri[1][y],tri[2][x],tri[2][y],self.col)
-            # if self.dot > 0:
-            #     pyxel.dither(self.dot-0.1)
-            #     pyxel.tri(tri[0][x],tri[0][y],tri[1][x],tri[1][y],tri[2][x],tri[2][y],tri[3]+16)
-            # if self.dot < 0:
-            #     pyxel.dither(abs(self.dot))
-            #     pyxel.tri(tri[0][x],tri[0][y],tri[1][x],tri[1][y],tri[2][x],tri[2][y],0)
-
-                
+            # pyxel.trib(tri[0][x],tri[0][y],tri[1][x],tri[1][y],tri[2][x],tri[2][y],0)
+        
+        
+        
+        
+        pyxel.text(-(size/2),-280,str(int(1/(time()-self.tm))),colors[5][5][5])
+        pyxel.text(-(size/2),-290,str(self.cp),colors[5][5][5])
+        pyxel.text(-(size/2),-(size/2),str(len(self.tris)),colors[5][5][5])
         
 
 App()
