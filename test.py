@@ -19,23 +19,6 @@ def frtr(I,II,III,IV,V,VI,fcol):
     v1=0
     s1=0
     pyxel.pset(I,II,colors[int(r)][int(g)][int(b)])
-    #pyxel.tri(I,II,III,IV,V,VI,colors[int(r)][int(g)][int(b)])
-    if not (r % 2 ==0 and g % 2 == 0 and b % 2 == 0):
-        if r % 2 ==1:
-            h1 = (int(r/2)+1)
-        else:
-            h1 = int(r/2)
-        if b % 2 ==1:
-            v1 = (int(b/2)+1)
-        else:
-            v1 = int(b/2)
-        if g % 2 ==1:
-            s1 = (int(g/2)+1)
-        else:
-            s1 = int(g/2)
-            pyxel.dither(dist(((hsv[0]/255)*5,(hsv[1]/255)*5,(hsv[2]/255)*5),(r,g,b))/5)
-            pyxel.pset(I,II,colors[h1][s1][v1])
-            pyxel.dither(1)
 class App:
     def __init__(self):
         pyxel.init(im.size[0],im.size[1])

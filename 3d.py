@@ -5,14 +5,13 @@ from random import randint
 from pyxel import KEY_W,KEY_S,KEY_D,KEY_A
 from pyxel import KEY_RIGHT,KEY_LEFT,KEY_UP,KEY_DOWN
 import numpy as np
-import stl_reader
 from time import time
-from stl import mesh as besh
+import pymeshlab
+from PIL import Image
+
+
 
 size = 600
-
-
-
 
 def rotate_z(point, angle):
     px, py, pz = point  
@@ -58,7 +57,7 @@ def triangle(P0, P1, P2):
         return False
     val = (P1[x] - P0[x]) * (P2[y] - P0[y]) - (P1[y] - P0[y]) * (P2[x] - P0[x])
     
-    return val < 0
+    return val > 0
 
 def normalize_3d_vector(v):
     magnitude = sqrt(v[0]**2 + v[1]**2 + v[2]**2)
@@ -68,43 +67,99 @@ def normalize_3d_vector(v):
     
     return [v[0] / magnitude, v[1] / magnitude, v[2] / magnitude]
 
-def mesh(file, X, Y, Z, S,color):
+def mesh(file, X, Y, Z, S,color,texture,light):
     global modelcount
     global nval
-    meshvert, meshind, = stl_reader.read(str(os.path.relpath(__file__).replace("3d.py", file + ".stl")))
-    mehse = besh.Mesh.from_file(str(os.path.relpath(__file__).replace("3d.py", file + ".stl")))
-    normals = mehse.normals
-    for N in normals:
-        nval.append(normalize_3d_vector(N))
+    ms = pymeshlab.MeshSet()
+    ms.load_new_mesh(str(os.path.relpath(__file__).replace("3d.py", file + ".obj")))
+    mesh = ms.current_mesh()
+    meshvert = mesh.vertex_matrix()
+    normals = mesh.vertex_normal_matrix()
+    meshind = mesh.face_matrix()
+    if texture != "none":
+        ms.apply_filter('compute_texcoord_transfer_wedge_to_vertex')
 
-    start_idx = len(prevertices)
+
+        mesh = ms.current_mesh()
+        mesh.compact()
+        meshuvs = mesh.vertex_tex_coord_matrix()
+    
+    
+
+    vcount = len(prevertices)
     for P in meshvert:
-        prevertices.append([P[0] * S + X, P[2] * S + Y, P[1] * S + Z])
+        prevertices.append([P[0] * S + X, P[1] * S + Y, P[2] * S + Z])
     meshind = meshind.tolist()
+    if texture != "none":
+        img = Image.open(str(os.path.relpath(__file__).replace("3d.py", texture + ".png")))
     for I in meshind:
-        I[0] += start_idx
-        I[1] += start_idx
-        I[2] += start_idx
-        I.append(color)
+        I[0] += vcount
+        I[1] += vcount
+        I[2] += vcount
+        if texture == "none":
+            I.append([color,color,color,color])
+        else:
+            uvr = 0
+            uvg = 0
+            uvb = 0
+            for i in range(3):
+                uv = meshuvs[(I[i])-vcount]
+                uv[0] = uv[0]*0.999
+                uv[1] = uv[1]*0.999
+                cl = img.getpixel((uv[x]*img.width,uv[y]*img.height))
+                uvr += cl[0]
+                uvg += cl[1]
+                uvb += cl[2]
+            I.append([])
+            I[-1].append([uvr/3,uvg/3,uvb/3])
+            
+            for egg in range(3):
+                uvr = 0
+                uvg = 0
+                uvb = 0
+                for B in range(5):
+                    if B > 2: 
+                        i = egg
+                    else:
+                        i = B
+                    uv = meshuvs[(I[i])-vcount]
+                    uv[0] = uv[0]*0.999
+                    uv[1] = uv[1]*0.999
+                    cl = img.getpixel((uv[x]*img.width,uv[y]*img.height))
+                    uvr += cl[0]
+                    uvg += cl[1]
+                    uvb += cl[2]
+                I[-1].append([uvr/5,uvg/5,uvb/5])
+        I.append(light)
+
+
         indices.append(I)
+
+        nval.append([])
+        nval[-1].append(np.mean([normalize_3d_vector(normals[I[0]-vcount]), normalize_3d_vector(normals[I[1]-vcount]), normalize_3d_vector(normals[I[2]-vcount])], axis=0))
+        nval[-1].append(normalize_3d_vector(normals[I[0]-vcount]))
+        nval[-1].append(normalize_3d_vector(normals[I[1]-vcount]))
+        nval[-1].append(normalize_3d_vector(normals[I[2]-vcount]))
+
+
+
     modelcount += 1
 modelcount = 0
 
 nval = []
-mesh("nut",2,0.2,0,0.3,(0,100,255))
-mesh("nut",4,0,0,0.6,(255,0,255))
-mesh("suzanne",-4,0,0,1,(200,100,0))
-mesh("plane",0,-1,0,1,(80,0,130))
-mesh("cone",0,0,5,0.3,(255,255,255))
-mesh("ball",0,0,-2,1,(0,255,0))
-mesh("S&C",5,0,6,1,(0,100,255))
+mesh("nut",2,0.2,0,0.3,(0,100,255),"none",True)
+mesh("nut",4,0,0,0.6,(255,0,255),"none",True)
+mesh("suzanne",-4,0,0,1,(200,100,0),"none",True)
+mesh("plane",0,-1,0,1,(80,0,130),"bone",False)
+mesh("cone",0,0,5,0.3,(255,255,255),"none",True)
+mesh("ball",0,0,-2,1,(0,255,0),"ball",True)
 
 
 
 
-lv = np.array([0.25, -0.5, 1])
+lv = np.array([0.25, 1, -0.5])
 slop= 1.6*size
-speed = 0.1
+speed = 6
 def project(pos):
     FOC = 1
     DIZ = (FOC+float(pos[z]))
@@ -115,7 +170,7 @@ def project(pos):
             float(pos[z])])
 class App:
     def __init__(self):
-        pyxel.init(size, size)
+        pyxel.init(size, size,)
         self.points = []
         self.tris = []
         self.c = 8
@@ -132,27 +187,26 @@ class App:
         
 
     def update(self):
-        print(self.pitch,self.yaw)
         if pyxel.frame_count >20:
             self.yaw += (((pyxel.mouse_x-int(size/2)))/-100)*(600/size)
             self.pitch += (((pyxel.mouse_y-int(size/2)))/-100)*(600/size)
         pyxel.warp_mouse(int(size/2),int(size/2))
         if pyxel.btn(KEY_W):
-            self.cp[2]+= sin(self.yaw+1.5708)*speed
-            self.cp[0]+= cos(self.yaw+1.5708)*speed
+            self.cp[2]+= sin(self.yaw+1.5708)*speed*(time()-self.tm)
+            self.cp[0]+= cos(self.yaw+1.5708)*speed*(time()-self.tm)
         if pyxel.btn(KEY_S):
-            self.cp[2]-= sin(self.yaw+1.5708)*speed
-            self.cp[0]-= cos(self.yaw+1.5708)*speed
+            self.cp[2]-= sin(self.yaw+1.5708)*speed*(time()-self.tm)
+            self.cp[0]-= cos(self.yaw+1.5708)*speed*(time()-self.tm)
         if pyxel.btn(KEY_A):
-            self.cp[2]-= sin(self.yaw)*speed
-            self.cp[0]-= cos(self.yaw)*speed
+            self.cp[2]-= sin(self.yaw)*speed*(time()-self.tm)
+            self.cp[0]-= cos(self.yaw)*speed*(time()-self.tm)
         if pyxel.btn(KEY_D):
-            self.cp[2]+= sin(self.yaw)*speed
-            self.cp[0]+= cos(self.yaw)*speed
+            self.cp[2]+= sin(self.yaw)*speed*(time()-self.tm)
+            self.cp[0]+= cos(self.yaw)*speed*(time()-self.tm)
         if pyxel.btn(pyxel.KEY_SPACE):
-            self.cp[1]+= speed
+            self.cp[1]+= speed*(time()-self.tm)
         if pyxel.btn(pyxel.KEY_SHIFT):
-            self.cp[1] -=speed
+            self.cp[1] -=speed*(time()-self.tm)
         
         
         vertices = []
@@ -178,7 +232,8 @@ class App:
                                 ind[3],
                                 int((self.points[ind[2]][z]+self.points[ind[1]][z]+self.points[ind[0]][z])/3),
                                 nval[i],
-                                (vertices[ind[0]][x],vertices[ind[0]][y],vertices[ind[0]][z]))) 
+                                (vertices[ind[0]][x],vertices[ind[0]][y],vertices[ind[0]][z]),
+                                ind[-1]))
         self.tris.sort(key=lambda t: t[4], reverse=True)
 
 
@@ -195,11 +250,24 @@ class App:
         
         
         for tri in self.tris:
-            self.dot = (lv @ tri[5])*-100
-            pyxel.dither(1)
-            self.col = (tri[3][0]-self.dot,tri[3][1]-self.dot,tri[3][2]-self.dot)
-            #self.col = ((tri[5][x]+1)*127,(tri[5][y]+1)*127,(tri[5][z]+1)*127)
-            frtr(tri[0][x],tri[0][y],tri[1][x],tri[1][y],tri[2][x],tri[2][y],self.col)
+            self.dot = float(((lv @ tri[5][0])*-100))*int(tri[-1])
+            self.col = (tri[3][0][0]-self.dot,tri[3][0][1]-self.dot,tri[3][0][2]-self.dot)
+            # self.col = ((tri[5][0][x]+1)*127,(tri[5][0][y]+1)*127,(tri[5][0][z]+1)*127) 
+            frtr(tri[0][x],tri[0][y],tri[1][x],tri[1][y],tri[2][x],tri[2][y],(self.col[0],self.col[1],self.col[2]))
+            
+            self.dot = float(((lv @ tri[5][1])*-100))*int(tri[-1])
+            self.col = (tri[3][1][0]-self.dot,tri[3][1][1]-self.dot,tri[3][1][2]-self.dot)
+            frtr(tri[0][x],tri[0][y],(tri[0][x]+tri[1][x])/2,(tri[0][y]+tri[1][y])/2,(tri[2][x]+tri[0][x])/2,(tri[2][y]+tri[0][y])/2,self.col)
+
+            self.dot = float(((lv @ tri[5][2])*-100))*int(tri[-1])
+            self.col = (tri[3][2][0]-self.dot,tri[3][2][1]-self.dot,tri[3][2][2]-self.dot)
+            frtr((tri[0][x]+tri[1][x])/2,(tri[0][y]+tri[1][y])/2,tri[1][x],tri[1][y],(tri[2][x]+tri[1][x])/2,(tri[2][y]+tri[1][y])/2,self.col)
+            
+            self.dot = float(((lv @ tri[5][3])*-100))*int(tri[-1])
+            self.col = (tri[3][3][0]-self.dot,tri[3][3][1]-self.dot,tri[3][3][2]-self.dot)
+            frtr((tri[0][x]+tri[2][x])/2,(tri[0][y]+tri[2][y])/2,(tri[1][x]+tri[2][x])/2,(tri[1][y]+tri[2][y])/2,tri[2][x],tri[2][y],self.col)
+            # frtr(tri[0][x],tri[0][y],tri[1][x],tri[1][y],tri[2][x],tri[2][y],self.col)
+
             # pyxel.trib(tri[0][x],tri[0][y],tri[1][x],tri[1][y],tri[2][x],tri[2][y],0)
         
         
