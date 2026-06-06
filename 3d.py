@@ -11,7 +11,7 @@ from PIL import Image
 
 
 
-size = 600
+size = 512
 
 def rotate_z(point, angle):
     px, py, pz = point  
@@ -35,13 +35,25 @@ colors = [[[0, 36, 72, 108, 144, 180], [6, 42, 78, 114, 150, 186], [12, 48, 84, 
 from colorutils import rgb_to_hsv
 def frtr(I,II,III,IV,V,VI,fcol):
     col = (max(min(255,fcol[0]),0),max(min(255,fcol[1]),0),max(min(255,fcol[2]),0))
-    hsv = col
-    g = int((hsv[0]/255)*5)
-    r = int((hsv[1]/255)*5)
-    b = int((hsv[2]/255)*5)
-    v1=0
-    s1=0
-    pyxel.tri(I,II,III,IV,V,VI,colors[int(r)][int(g)][int(b)])
+    r = (col[0]/255)*5
+    g = (col[1]/255)*5
+    b = (col[2]/255)*5
+    d = False
+    pyxel.tri(I,II,III,IV,V,VI,colors[int(g)][int(r)][int(b)])
+    if not pyxel.btn(pyxel.KEY_I):
+        if int(b) < b and abs(int(b) - b) >= 0.5:
+            b+=1
+            d = True
+        if int(r) < r and abs(int(r) - r) >= 0.5:
+            r+=1
+            d = True
+        if int(g) < g and abs(int(g) - g) >= 0.5:
+            g+=1
+            d = True
+        if d:
+            pyxel.dither(0.5)
+            pyxel.tri(I,II,III,IV,V,VI,colors[int(g)][int(r)][int(b)])
+            pyxel.dither(1)
 
 
 def sideofline(A, B, P):
@@ -59,6 +71,18 @@ def triangle(P0, P1, P2):
     
     return val > 0
 
+
+def approx_dot(v1,v2):
+    """                                                                                                     
+    d0 is Nominal approach:                                                                                 
+    multiply/add in a loop                                                                                  
+    """
+    out = 0
+    for k in range(len(v1)):
+        out += v1[k] * v2[k]
+    return out
+
+
 def normalize_3d_vector(v):
     magnitude = sqrt(v[0]**2 + v[1]**2 + v[2]**2)
     
@@ -67,11 +91,11 @@ def normalize_3d_vector(v):
     
     return [v[0] / magnitude, v[1] / magnitude, v[2] / magnitude]
 
-def mesh(file, X, Y, Z, S,color,texture,light):
+def mesh(file, X, Y, Z, S,color,texture="none",light=True):
     global modelcount
     global nval
     ms = pymeshlab.MeshSet()
-    ms.load_new_mesh(str(os.path.relpath(__file__).replace("3d.py", file + ".obj")))
+    ms.load_new_mesh(str(os.path.relpath(__file__).replace("3d.py","sceene/"+ file + ".obj")))
     mesh = ms.current_mesh()
     meshvert = mesh.vertex_matrix()
     normals = mesh.vertex_normal_matrix()
@@ -91,7 +115,7 @@ def mesh(file, X, Y, Z, S,color,texture,light):
         prevertices.append([P[0] * S + X, P[1] * S + Y, P[2] * S + Z])
     meshind = meshind.tolist()
     if texture != "none":
-        img = Image.open(str(os.path.relpath(__file__).replace("3d.py", texture + ".png")))
+        img = Image.open(str(os.path.relpath(__file__).replace("3d.py", "sceene/"+texture + ".png")))
     for I in meshind:
         I[0] += vcount
         I[1] += vcount
@@ -147,12 +171,12 @@ def mesh(file, X, Y, Z, S,color,texture,light):
 modelcount = 0
 
 nval = []
-mesh("nut",2,0.2,0,0.3,(0,100,255),"none",True)
-mesh("nut",4,0,0,0.6,(255,0,255),"none",True)
-mesh("suzanne",-4,0,0,1,(200,100,0),"none",True)
-mesh("plane",0,-1,0,1,(80,0,130),"bone",False)
-mesh("cone",0,0,5,0.3,(255,255,255),"none",True)
-mesh("ball",0,0,-2,1,(0,255,0),"ball",True)
+mesh("nut",2,0.2,0,0.3,(0,100,255))
+mesh("nut",4,0,0,0.6,(255,0,255))
+mesh("suzanne",-4,0,0,1,(200,100,0))
+mesh("plane",0,-1,0,1,(80,0,130),texture="bone",light=False)
+mesh("cone",0,0,5,0.3,(255,255,255))
+mesh("ball",0,0,-2,1,(0,255,0),texture="ball")
 
 
 
@@ -247,34 +271,40 @@ class App:
 
         self.tm = time()
         
-        
+        if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
+            mesh("suzanne",pyxel.rndi(-10,10)/10,pyxel.rndi(-10,10)/10,pyxel.rndi(-10,10)/10,0.1,(0,255,255))
+
         
         for tri in self.tris:
-            self.dot = float(((lv @ tri[5][0])*-100))*int(tri[-1])
+            if int(tri[-1]):
+                self.dot = approx_dot(lv,tri[5][0])*-100*int(tri[-1])
+            else:
+                self.dot = 0
             self.col = (tri[3][0][0]-self.dot,tri[3][0][1]-self.dot,tri[3][0][2]-self.dot)
             # self.col = ((tri[5][0][x]+1)*127,(tri[5][0][y]+1)*127,(tri[5][0][z]+1)*127) 
             frtr(tri[0][x],tri[0][y],tri[1][x],tri[1][y],tri[2][x],tri[2][y],(self.col[0],self.col[1],self.col[2]))
-            
-            self.dot = float(((lv @ tri[5][1])*-100))*int(tri[-1])
-            self.col = (tri[3][1][0]-self.dot,tri[3][1][1]-self.dot,tri[3][1][2]-self.dot)
-            frtr(tri[0][x],tri[0][y],(tri[0][x]+tri[1][x])/2,(tri[0][y]+tri[1][y])/2,(tri[2][x]+tri[0][x])/2,(tri[2][y]+tri[0][y])/2,self.col)
+            if not pyxel.btn(pyxel.KEY_P):
+                if int(tri[-1]):   
+                    self.dot = approx_dot(lv,tri[5][1])*-100*int(tri[-1])
+                self.col = (tri[3][1][0]-self.dot,tri[3][1][1]-self.dot,tri[3][1][2]-self.dot)
+                frtr(tri[0][x],tri[0][y],(tri[0][x]+tri[1][x])/2,(tri[0][y]+tri[1][y])/2,(tri[2][x]+tri[0][x])/2,(tri[2][y]+tri[0][y])/2,self.col)
+                if int(tri[-1]):
+                    self.dot = approx_dot(lv,tri[5][2])*-100
+                self.col = (tri[3][2][0]-self.dot,tri[3][2][1]-self.dot,tri[3][2][2]-self.dot)
+                frtr((tri[0][x]+tri[1][x])/2,(tri[0][y]+tri[1][y])/2,tri[1][x],tri[1][y],(tri[2][x]+tri[1][x])/2,(tri[2][y]+tri[1][y])/2,self.col)
+                
+                if int(tri[-1]):
+                    self.dot = approx_dot(lv,tri[5][3])*-100*int(tri[-1])
+                self.col = (tri[3][3][0]-self.dot,tri[3][3][1]-self.dot,tri[3][3][2]-self.dot)
+                frtr((tri[0][x]+tri[2][x])/2,(tri[0][y]+tri[2][y])/2,(tri[1][x]+tri[2][x])/2,(tri[1][y]+tri[2][y])/2,tri[2][x],tri[2][y],self.col)
 
-            self.dot = float(((lv @ tri[5][2])*-100))*int(tri[-1])
-            self.col = (tri[3][2][0]-self.dot,tri[3][2][1]-self.dot,tri[3][2][2]-self.dot)
-            frtr((tri[0][x]+tri[1][x])/2,(tri[0][y]+tri[1][y])/2,tri[1][x],tri[1][y],(tri[2][x]+tri[1][x])/2,(tri[2][y]+tri[1][y])/2,self.col)
-            
-            self.dot = float(((lv @ tri[5][3])*-100))*int(tri[-1])
-            self.col = (tri[3][3][0]-self.dot,tri[3][3][1]-self.dot,tri[3][3][2]-self.dot)
-            frtr((tri[0][x]+tri[2][x])/2,(tri[0][y]+tri[2][y])/2,(tri[1][x]+tri[2][x])/2,(tri[1][y]+tri[2][y])/2,tri[2][x],tri[2][y],self.col)
-            # frtr(tri[0][x],tri[0][y],tri[1][x],tri[1][y],tri[2][x],tri[2][y],self.col)
-
-            # pyxel.trib(tri[0][x],tri[0][y],tri[1][x],tri[1][y],tri[2][x],tri[2][y],0)
+            if pyxel.btn(pyxel.KEY_O):
+                pyxel.trib(tri[0][x],tri[0][y],tri[1][x],tri[1][y],tri[2][x],tri[2][y],colors[0][0][0])
         
         
         
         
-        pyxel.text(-(size/2),-280,str(int(1/(time()-self.tm))),colors[5][5][5])
-        pyxel.text(-(size/2),-290,str(self.cp),colors[5][5][5])
+        pyxel.text(-(size/2),-(size/2)+10,str(int(1/(time()-self.tm))),colors[5][5][5])
         pyxel.text(-(size/2),-(size/2),str(len(self.tris)),colors[5][5][5])
         
 

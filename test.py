@@ -3,7 +3,7 @@ from math import *
 import pyxel  
 from random import randint
 from PIL import Image
-im = Image.open("pyxel3d/x50ricky.png")
+im = Image.open("pyxel3d/sceene/X50ricky.png")
 x= 0
 y= 1
 z= 2
@@ -12,13 +12,25 @@ colors = [[[0, 36, 72, 108, 144, 180], [6, 42, 78, 114, 150, 186], [12, 48, 84, 
 from colorutils import rgb_to_hsv
 def frtr(I,II,III,IV,V,VI,fcol):
     col = (max(min(255,fcol[0]),0),max(min(255,fcol[1]),0),max(min(255,fcol[2]),0))
-    hsv = col
-    g = int((hsv[0]/255)*5)
-    r = int((hsv[1]/255)*5)
-    b = int((hsv[2]/255)*5)
-    v1=0
-    s1=0
-    pyxel.pset(I,II,colors[int(r)][int(g)][int(b)])
+    r = int((col[0]/255)*5)
+    g = int((col[1]/255)*5)
+    b = int((col[2]/255)*5)
+    d = False
+    pyxel.pset(I,II,colors[int(g)][int(r)][int(b)])
+    if b < (col[2]/255)*5 and abs(b - (col[2]/255)*5) > 0.4:
+        b+=1
+        d = True
+    if r < (col[0]/255)*5 and abs(r - (col[0]/255)*5) > 0.4:
+        r+=1
+        d = True
+    if g < (col[1]/255)*5 and abs(g - (col[1]/255)*5) > 0.4:
+        g+=1
+        d = True
+    if d and I > pyxel.mouse_x:
+        pyxel.dither(0.5)
+        pyxel.pset(I,II,colors[int(g)][int(r)][int(b)])
+        pyxel.dither(1)
+
 class App:
     def __init__(self):
         pyxel.init(im.size[0],im.size[1])
