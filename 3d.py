@@ -174,9 +174,9 @@ nval = []
 mesh("nut",2,0.2,0,0.3,(0,100,255))
 mesh("nut",4,0,0,0.6,(255,0,255))
 mesh("suzanne",-4,0,0,1,(200,100,0))
-mesh("plane",0,-1,0,1,(80,0,130),texture="bone",light=False)
+mesh("plane",0,-1,0,1,(80,0,130),light=False)
 mesh("cone",0,0,5,0.3,(255,255,255))
-mesh("ball",0,0,-2,1,(0,255,0),texture="ball")
+mesh("ball",0,0,-2,1,(0,255,0))
 
 
 
